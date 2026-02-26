@@ -52,6 +52,8 @@ bool debug = false;
 
 static pid_t pid = 0;
 
+static bool daemon_stop = false;
+
 static char **childArgv = 0;
 static int nChildArgv = 0;
 
@@ -118,7 +120,10 @@ static int get_argb_visual(Visual **visual, int *depth) {
   return 0;
 }
 
-static void sigHandler(int sig) { kill(pid, sig); }
+static void sigHandler(int sig) {
+  kill(pid, sig);
+  daemon_stop = true;
+}
 
 static void usage(void) {
   fprintf(stderr, "%s \n", NAME);
@@ -662,6 +667,17 @@ int main(int argc, char **argv) {
     break;
   default:
     break;
+  }
+
+  // fork 守护进程，每秒检查 window 是否在最底层
+  pid_t daemon_pid = fork();
+  if (daemon_pid == 0) {
+    while (!daemon_stop) {
+      XLowerWindow(display, window.window); // 保证你的 override 窗口在最底层
+      XFlush(display);
+      usleep(200000);
+    }
+    exit(0);
   }
 
   signal(SIGTERM, sigHandler);
