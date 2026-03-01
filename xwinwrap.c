@@ -669,13 +669,34 @@ int main(int argc, char **argv) {
     break;
   }
 
-  // fork 守护进程，每秒检查 window 是否在最底层
+  XSelectInput(display, window.root, SubstructureNotifyMask);
+
+  // fork 守护进程
   pid_t daemon_pid = fork();
   if (daemon_pid == 0) {
+    int fd = ConnectionNumber(display);
+    struct timeval tv = {0, 50000}; // 50ms
+
     while (!daemon_stop) {
-      XLowerWindow(display, window.window); // 保证你的 override 窗口在最底层
-      XFlush(display);
-      usleep(200000);
+      fd_set fds;
+      FD_ZERO(&fds);
+      FD_SET(fd, &fds);
+      XEvent ev;
+
+      select(fd + 1, &fds, NULL, NULL, &tv);
+
+      while (XPending(display)) {
+        XNextEvent(display, &ev);
+        if (ev.type == MapNotify) {
+          XMapEvent *map = &ev.xmap;
+          XWindowAttributes attr;
+          XGetWindowAttributes(display, map->window, &attr);
+          if (attr.override_redirect) {
+            XLowerWindow(display, window.window);
+            XFlush(display);
+          }
+        }
+      }
     }
     exit(0);
   }
