@@ -441,7 +441,6 @@ int main(int argc, char **argv) {
     window.window = XCreateWindow(display, window.root, window.x, window.y,
                                   window.width, window.height, 0, depth,
                                   InputOutput, visual, flags, &attrs);
-    XLowerWindow(display, window.window);
 
     fprintf(stderr, NAME ": window type - override\n");
     fflush(stderr);
@@ -648,6 +647,9 @@ int main(int argc, char **argv) {
                       ShapeSet);
   }
 
+  if (override) {
+    XLowerWindow(display, window.window);
+  }
   XMapWindow(display, window.window);
 
   XSync(display, window.window);
@@ -669,47 +671,44 @@ int main(int argc, char **argv) {
     break;
   }
 
-  XSelectInput(display, window.root, SubstructureNotifyMask);
-
-  // fork 守护进程
-  pid_t daemon_pid = fork();
-  if (daemon_pid == 0) {
-    int fd = ConnectionNumber(display);
-    struct timeval tv = {0, 50000}; // 50ms
-
-    while (!daemon_stop) {
-      fd_set fds;
-      FD_ZERO(&fds);
-      FD_SET(fd, &fds);
-      XEvent ev;
-
-      select(fd + 1, &fds, NULL, NULL, &tv);
-
-      while (XPending(display)) {
-        XNextEvent(display, &ev);
-        if (ev.type == MapNotify) {
-          XMapEvent *map = &ev.xmap;
-          XWindowAttributes attr;
-          XGetWindowAttributes(display, map->window, &attr);
-          if (attr.override_redirect) {
-            XLowerWindow(display, window.window);
-            XFlush(display);
-          }
-        }
-      }
-    }
-    exit(0);
-  }
-
   signal(SIGTERM, sigHandler);
   signal(SIGINT, sigHandler);
 
+  XSelectInput(display, window.root, SubstructureNotifyMask);
+
+  int fd = ConnectionNumber(display);
+  struct timeval tv = {0, 50000}; // 50m
+
   for (;;) {
-    if (waitpid(pid, &status, 0) != -1) {
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(fd, &fds);
+    XEvent ev;
+
+    select(fd + 1, &fds, NULL, NULL, &tv);
+
+    while (XPending(display)) {
+      XNextEvent(display, &ev);
+      if (ev.type == MapNotify) {
+        XMapEvent *map = &ev.xmap;
+        XWindowAttributes attr;
+        XClassHint ch = {NULL, NULL};
+
+        XGetWindowAttributes(display, map->window, &attr);
+        XGetClassHint(display, map->window, &ch);
+
+        if (attr.override_redirect && ch.res_class &&
+            !strstr(ch.res_class, NAME)) {
+          XLowerWindow(display, window.window);
+          XFlush(display);
+        }
+      }
+    }
+
+    if (waitpid(pid, &status, WNOHANG) > 0) {
       if (WIFEXITED(status))
         fprintf(stderr, "%s died, exit status %d\n", childArgv[0],
                 WEXITSTATUS(status));
-
       break;
     }
   }
