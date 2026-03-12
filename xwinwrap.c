@@ -441,6 +441,7 @@ int main(int argc, char **argv) {
     window.window = XCreateWindow(display, window.desktop, window.x, window.y,
                                   window.width, window.height, 0, depth,
                                   InputOutput, visual, flags, &attrs);
+    XLowerWindow(display, window.window);
 
     fprintf(stderr, NAME ": window type - override\n");
     fflush(stderr);
@@ -647,9 +648,6 @@ int main(int argc, char **argv) {
                       ShapeSet);
   }
 
-  if (override) {
-    XLowerWindow(display, window.window);
-  }
   XMapWindow(display, window.window);
 
   XSync(display, window.window);
@@ -691,14 +689,9 @@ int main(int argc, char **argv) {
       XNextEvent(display, &ev);
       if (ev.type == MapNotify) {
         XMapEvent *map = &ev.xmap;
-        XWindowAttributes attr;
-        XClassHint ch = {NULL, NULL};
-
-        XGetWindowAttributes(display, map->window, &attr);
-        XGetClassHint(display, map->window, &ch);
-
-        if (attr.override_redirect && ch.res_class &&
-            !strstr(ch.res_class, NAME)) {
+        // NOTE: 避免获取map->window的attr或class
+        // 如果抓取到popup窗口，会引发Xerror错误，导致xwinwrap直接退出
+        if (map->override_redirect && map->window != window.window) {
           XLowerWindow(display, window.window);
           XFlush(display);
         }
