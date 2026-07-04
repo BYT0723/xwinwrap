@@ -648,6 +648,8 @@ int main(int argc, char **argv) {
                       ShapeSet);
   }
 
+  XSelectInput(display, window.window,
+               SubstructureNotifyMask | EnterWindowMask | LeaveWindowMask);
   XMapWindow(display, window.window);
 
   XSync(display, window.window);
@@ -695,6 +697,24 @@ int main(int argc, char **argv) {
           XLowerWindow(display, window.window);
           XFlush(display);
         }
+        // Prevent child (mpv) from intercepting pointer events
+        if (map->event == window.window && map->window != window.window)
+          XSelectInput(display, map->window, NoEventMask);
+      } else if (ev.type == EnterNotify || ev.type == LeaveNotify) {
+        XCrossingEvent *cross = &ev.xcrossing;
+        XEvent fake;
+        memset(&fake, 0, sizeof(fake));
+        fake.xmotion.type = MotionNotify;
+        fake.xmotion.window = window.root;
+        fake.xmotion.root = window.root;
+        fake.xmotion.subwindow = None;
+        fake.xmotion.time = cross->time;
+        fake.xmotion.x_root = cross->x_root;
+        fake.xmotion.y_root = cross->y_root;
+        fake.xmotion.state = cross->state;
+        fake.xmotion.is_hint = NotifyNormal;
+        fake.xmotion.same_screen = True;
+        XSendEvent(display, window.root, True, PointerMotionMask, &fake);
       }
     }
 
