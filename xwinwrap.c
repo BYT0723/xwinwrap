@@ -76,11 +76,8 @@ static int addArguments(char **argv, int n) {
 
 static void setWindowOpacity(unsigned int opacity) {
   CARD32 o;
-
   o = opacity;
-
-  XChangeProperty(display, window.window, ATOM(_NET_WM_WINDOW_OPACITY),
-                  XA_CARDINAL, 32, PropModeReplace, (unsigned char *)&o, 1);
+  XChangeProperty(display, window.window, ATOM(_NET_WM_WINDOW_OPACITY), XA_CARDINAL, 32, PropModeReplace, (unsigned char *)&o, 1);
 }
 
 static void init_x11() {
@@ -100,12 +97,9 @@ static int get_argb_visual(Visual **visual, int *depth) {
   int nxvisuals = 0, i;
 
   visual_template.screen = screen;
-  visual_list =
-      XGetVisualInfo(display, VisualScreenMask, &visual_template, &nxvisuals);
+  visual_list = XGetVisualInfo(display, VisualScreenMask, &visual_template, &nxvisuals);
   for (i = 0; i < nxvisuals; i++) {
-    if (visual_list[i].depth == 32 && (visual_list[i].red_mask == 0xff0000 &&
-                                       visual_list[i].green_mask == 0x00ff00 &&
-                                       visual_list[i].blue_mask == 0x0000ff)) {
+    if (visual_list[i].depth == 32 && (visual_list[i].red_mask == 0xff0000 && visual_list[i].green_mask == 0x00ff00 && visual_list[i].blue_mask == 0x0000ff)) {
       *visual = visual_list[i].visual;
       *depth = visual_list[i].depth;
       if (debug)
@@ -168,9 +162,7 @@ static Window find_subwindow(Window win, int w, int h) {
       if (XGetWindowAttributes(display, children[j], &attrs)) {
         /* Window must be mapped and same size as display or
          * work space */
-        if (attrs.map_state != 0 &&
-            ((attrs.width == display_width && attrs.height == display_height) ||
-             (attrs.width == w && attrs.height == h))) {
+        if (attrs.map_state != 0 && ((attrs.width == display_width && attrs.height == display_height) || (attrs.width == w && attrs.height == h))) {
           win = children[j];
           break;
         }
@@ -204,17 +196,12 @@ static Window find_desktop_window(Window *p_root, Window *p_desktop) {
 
   XQueryTree(display, root, &troot, &parent, &children, &n);
   for (i = 0; i < (int)n; i++) {
-    if (XGetWindowProperty(display, children[i], ATOM(__SWM_VROOT), 0, 1, False,
-                           XA_WINDOW, &type, &format, &nitems, &bytes,
-                           &buf) == Success &&
-        type == XA_WINDOW) {
+    if (XGetWindowProperty(display, children[i], ATOM(__SWM_VROOT), 0, 1, False, XA_WINDOW, &type, &format, &nitems, &bytes, &buf) == Success && type == XA_WINDOW) {
       win = *(Window *)buf;
       XFree(buf);
       XFree(children);
       if (debug) {
-        fprintf(stderr,
-                NAME ": desktop window (%lx) found from __SWM_VROOT property\n",
-                win);
+        fprintf(stderr, NAME ": desktop window (%lx) found from __SWM_VROOT property\n", win);
       }
       fflush(stderr);
       *p_root = win;
@@ -243,9 +230,7 @@ static Window find_desktop_window(Window *p_root, Window *p_desktop) {
   }
 
   if (win != root && debug) {
-    fprintf(stderr,
-            NAME ": desktop window (%lx) is subwindow of root window (%lx)\n",
-            win, root);
+    fprintf(stderr, NAME ": desktop window (%lx) is subwindow of root window (%lx)\n", win, root);
   } else if (debug) {
     fprintf(stderr, NAME ": desktop window (%lx) is root window\n", win);
   }
@@ -292,8 +277,7 @@ int main(int argc, char **argv) {
   for (i = 1; i < argc; i++) {
     if (strcmp(argv[i], "-g") == 0) {
       if (++i < argc)
-        XParseGeometry(argv[i], &window.x, &window.y, &window.width,
-                       &window.height);
+        XParseGeometry(argv[i], &window.x, &window.y, &window.width, &window.height);
     } else if (strcmp(argv[i], "-ni") == 0) {
       noInput = 1;
     } else if (strcmp(argv[i], "-argb") == 0) {
@@ -403,8 +387,7 @@ int main(int argc, char **argv) {
   if (argb && get_argb_visual(&visual, &depth)) {
     have_argb_visual = true;
     window.visual = visual;
-    window.colourmap = XCreateColormap(display, DefaultRootWindow(display),
-                                       window.visual, AllocNone);
+    window.colourmap = XCreateColormap(display, DefaultRootWindow(display), window.visual, AllocNone);
   } else {
     window.visual = DefaultVisual(display, screen);
     window.colourmap = DefaultColormap(display, screen);
@@ -415,21 +398,23 @@ int main(int argc, char **argv) {
   if (override) {
     /* An override_redirect True window.
      * No WM hints or button processing needed. */
-    XSetWindowAttributes attrs = {ParentRelative,
-                                  0L,
-                                  0,
-                                  0L,
-                                  0,
-                                  0,
-                                  Always,
-                                  0L,
-                                  0L,
-                                  False,
-                                  StructureNotifyMask | ExposureMask,
-                                  0L,
-                                  True,
-                                  0,
-                                  0};
+    XSetWindowAttributes attrs = {
+      ParentRelative,
+      0L,
+      0,
+      0L,
+      0,
+      0,
+      Always,
+      0L,
+      0L,
+      False,
+      StructureNotifyMask | ExposureMask,
+      0L,
+      True,
+      0,
+      0
+    };
 
     if (have_argb_visual) {
       attrs.colormap = window.colourmap;
@@ -438,30 +423,29 @@ int main(int argc, char **argv) {
       flags |= CWBackPixel;
     }
 
-    window.window = XCreateWindow(display, window.desktop, window.x, window.y,
-                                  window.width, window.height, 0, depth,
-                                  InputOutput, visual, flags, &attrs);
+    window.window = XCreateWindow(display, window.desktop, window.x, window.y, window.width, window.height, 0, depth, InputOutput, visual, flags, &attrs);
     XLowerWindow(display, window.window);
 
     fprintf(stderr, NAME ": window type - override\n");
     fflush(stderr);
   } else {
-    XSetWindowAttributes attrs = {ParentRelative,
-                                  0L,
-                                  0,
-                                  0L,
-                                  0,
-                                  0,
-                                  Always,
-                                  0L,
-                                  0L,
-                                  False,
-                                  StructureNotifyMask | ExposureMask |
-                                      ButtonPressMask | ButtonReleaseMask,
-                                  0L,
-                                  False,
-                                  0,
-                                  0};
+    XSetWindowAttributes attrs = {
+      ParentRelative,
+      0L,
+      0,
+      0L,
+      0,
+      0,
+      Always,
+      0L,
+      0L,
+      False,
+      StructureNotifyMask | ExposureMask | ButtonPressMask | ButtonReleaseMask,
+      0L,
+      False,
+      0,
+      0
+    };
 
     XWMHints wmHint;
     Atom xa;
@@ -473,17 +457,14 @@ int main(int argc, char **argv) {
       flags |= CWBackPixel;
     }
 
-    window.window = XCreateWindow(display, window.root, window.x, window.y,
-                                  window.width, window.height, 0, depth,
-                                  InputOutput, visual, flags, &attrs);
+    window.window = XCreateWindow(display, window.root, window.x, window.y, window.width, window.height, 0, depth,InputOutput, visual, flags, &attrs);
 
     wmHint.flags = InputHint | StateHint;
     // wmHint.input = undecorated ? False : True;
     wmHint.input = !noFocus;
     wmHint.initial_state = NormalState;
 
-    XSetWMProperties(display, window.window, NULL, NULL, argv, argc, NULL,
-                     &wmHint, NULL);
+    XSetWMProperties(display, window.window, NULL, NULL, argv, argc, NULL, &wmHint, NULL);
 
     xa = ATOM(_NET_WM_WINDOW_TYPE);
 
@@ -494,15 +475,13 @@ int main(int argc, char **argv) {
       prop = ATOM(_NET_WM_WINDOW_TYPE_NORMAL);
     }
 
-    XChangeProperty(display, window.window, xa, XA_ATOM, 32, PropModeReplace,
-                    (unsigned char *)&prop, 1);
+    XChangeProperty(display, window.window, xa, XA_ATOM, 32, PropModeReplace, (unsigned char *)&prop, 1);
 
     if (undecorated) {
       xa = ATOM(_MOTIF_WM_HINTS);
       if (xa != None) {
         long prop[5] = {2, 0, 0, 0, 0};
-        XChangeProperty(display, window.window, xa, xa, 32, PropModeReplace,
-                        (unsigned char *)prop, 5);
+        XChangeProperty(display, window.window, xa, xa, 32, PropModeReplace, (unsigned char *)prop, 5);
       }
     }
 
@@ -512,17 +491,13 @@ int main(int argc, char **argv) {
       xa = ATOM(_WIN_LAYER);
       if (xa != None) {
         long prop = 0;
-
-        XChangeProperty(display, window.window, xa, XA_CARDINAL, 32,
-                        PropModeAppend, (unsigned char *)&prop, 1);
+        XChangeProperty(display, window.window, xa, XA_CARDINAL, 32, PropModeAppend, (unsigned char *)&prop, 1);
       }
 
       xa = ATOM(_NET_WM_STATE);
       if (xa != None) {
         Atom xa_prop = ATOM(_NET_WM_STATE_BELOW);
-
-        XChangeProperty(display, window.window, xa, XA_ATOM, 32, PropModeAppend,
-                        (unsigned char *)&xa_prop, 1);
+        XChangeProperty(display, window.window, xa, XA_ATOM, 32, PropModeAppend, (unsigned char *)&xa_prop, 1);
       }
     }
 
@@ -532,17 +507,13 @@ int main(int argc, char **argv) {
       xa = ATOM(_WIN_LAYER);
       if (xa != None) {
         long prop = 6;
-
-        XChangeProperty(display, window.window, xa, XA_CARDINAL, 32,
-                        PropModeAppend, (unsigned char *)&prop, 1);
+        XChangeProperty(display, window.window, xa, XA_CARDINAL, 32, PropModeAppend, (unsigned char *)&prop, 1);
       }
 
       xa = ATOM(_NET_WM_STATE);
       if (xa != None) {
         Atom xa_prop = ATOM(_NET_WM_STATE_ABOVE);
-
-        XChangeProperty(display, window.window, xa, XA_ATOM, 32, PropModeAppend,
-                        (unsigned char *)&xa_prop, 1);
+        XChangeProperty(display, window.window, xa, XA_ATOM, 32, PropModeAppend, (unsigned char *)&xa_prop, 1);
       }
     }
 
@@ -552,17 +523,13 @@ int main(int argc, char **argv) {
       xa = ATOM(_NET_WM_DESKTOP);
       if (xa != None) {
         CARD32 xa_prop = 0xFFFFFFFF;
-
-        XChangeProperty(display, window.window, xa, XA_CARDINAL, 32,
-                        PropModeAppend, (unsigned char *)&xa_prop, 1);
+        XChangeProperty(display, window.window, xa, XA_CARDINAL, 32, PropModeAppend, (unsigned char *)&xa_prop, 1);
       }
 
       xa = ATOM(_NET_WM_STATE);
       if (xa != None) {
         Atom xa_prop = ATOM(_NET_WM_STATE_STICKY);
-
-        XChangeProperty(display, window.window, xa, XA_ATOM, 32, PropModeAppend,
-                        (unsigned char *)&xa_prop, 1);
+        XChangeProperty(display, window.window, xa, XA_ATOM, 32, PropModeAppend, (unsigned char *)&xa_prop, 1);
       }
     }
 
@@ -572,9 +539,7 @@ int main(int argc, char **argv) {
       xa = ATOM(_NET_WM_STATE);
       if (xa != None) {
         Atom xa_prop = ATOM(_NET_WM_STATE_SKIP_TASKBAR);
-
-        XChangeProperty(display, window.window, xa, XA_ATOM, 32, PropModeAppend,
-                        (unsigned char *)&xa_prop, 1);
+        XChangeProperty(display, window.window, xa, XA_ATOM, 32, PropModeAppend, (unsigned char *)&xa_prop, 1);
       }
     }
 
@@ -584,15 +549,12 @@ int main(int argc, char **argv) {
       xa = ATOM(_NET_WM_STATE);
       if (xa != None) {
         Atom xa_prop = ATOM(_NET_WM_STATE_SKIP_PAGER);
-
-        XChangeProperty(display, window.window, xa, XA_ATOM, 32, PropModeAppend,
-                        (unsigned char *)&xa_prop, 1);
+        XChangeProperty(display, window.window, xa, XA_ATOM, 32, PropModeAppend, (unsigned char *)&xa_prop, 1);
       }
     }
   }
 
   XClassHint ch = {"xwinwrap", "xwinwrap"};
-
   XSetClassHint(display, window.window, &ch);
 
   if (opacity != OPAQUE)
@@ -603,15 +565,13 @@ int main(int argc, char **argv) {
 
     region = XCreateRegion();
     if (region) {
-      XShapeCombineRegion(display, window.window, ShapeInput, 0, 0, region,
-                          ShapeSet);
+      XShapeCombineRegion(display, window.window, ShapeInput, 0, 0, region, ShapeSet);
       XDestroyRegion(region);
     }
   }
 
   if (shape) {
-    mask =
-        XCreatePixmap(display, window.window, window.width, window.height, 1);
+    mask = XCreatePixmap(display, window.window, window.width, window.height, 1);
     mask_gc = XCreateGC(display, mask, 0, &xgcv);
 
     switch (shape) {
@@ -622,14 +582,15 @@ int main(int argc, char **argv) {
       XFillRectangle(display, mask, mask_gc, 0, 0, window.width, window.height);
 
       XSetForeground(display, mask_gc, 1);
-      XFillArc(display, mask, mask_gc, 0, 0, window.width, window.height, 0,
-               23040);
+      XFillArc(display, mask, mask_gc, 0, 0, window.width, window.height, 0, 23040);
       break;
 
     case SHAPE_TRIG: {
-      XPoint points[3] = {{0, window.height},
-                          {window.width / 2, 0},
-                          {window.width, window.height}};
+      XPoint points[3] = {
+        {0, window.height},
+        {window.width / 2, 0},
+        {window.width, window.height}
+      };
 
       XSetForeground(display, mask_gc, 0);
       XFillRectangle(display, mask, mask_gc, 0, 0, window.width, window.height);
@@ -644,12 +605,10 @@ int main(int argc, char **argv) {
       break;
     }
     /* combine */
-    XShapeCombineMask(display, window.window, ShapeBounding, 0, 0, mask,
-                      ShapeSet);
+    XShapeCombineMask(display, window.window, ShapeBounding, 0, 0, mask, ShapeSet);
   }
 
-  XSelectInput(display, window.window,
-               SubstructureNotifyMask | EnterWindowMask | LeaveWindowMask);
+  XSelectInput(display, window.window, SubstructureNotifyMask | EnterWindowMask | LeaveWindowMask);
   XMapWindow(display, window.window);
 
   XSync(display, window.window);
@@ -674,7 +633,6 @@ int main(int argc, char **argv) {
   signal(SIGTERM, sigHandler);
   signal(SIGINT, sigHandler);
 
-  XSelectInput(display, window.root, SubstructureNotifyMask);
 
   int fd = ConnectionNumber(display);
   struct timeval tv = {0, 50000}; // 50m
@@ -693,14 +651,9 @@ int main(int argc, char **argv) {
         XMapEvent *map = &ev.xmap;
         // NOTE: 避免获取map->window的attr或class
         // 如果抓取到popup窗口，会引发Xerror错误，导致xwinwrap直接退出
-        if (map->window != window.window) {
-          if (map->override_redirect) {
-            XLowerWindow(display, window.window);
-            XFlush(display);
-          }
-          // Prevent child (mpv) from intercepting pointer events
-          if (map->event == window.window)
-            XSelectInput(display, map->window, NoEventMask);
+        if (map->window != window.window && map->override_redirect) {
+          XLowerWindow(display, window.window);
+          XFlush(display);
         }
       } else if (ev.type == EnterNotify || ev.type == LeaveNotify) {
         XCrossingEvent *cross = &ev.xcrossing;
@@ -724,8 +677,7 @@ int main(int argc, char **argv) {
 
     if (waitpid(pid, &status, WNOHANG) > 0) {
       if (WIFEXITED(status))
-        fprintf(stderr, "%s died, exit status %d\n", childArgv[0],
-                WEXITSTATUS(status));
+        fprintf(stderr, "%s died, exit status %d\n", childArgv[0], WEXITSTATUS(status));
       break;
     }
   }
