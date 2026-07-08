@@ -37,7 +37,7 @@ typedef enum {
 } win_shape;
 
 struct window {
-  Window root, window, desktop;
+  Window root, window;
   Drawable drawable;
   Visual *visual;
   Colormap colourmap;
@@ -144,103 +144,6 @@ static void usage(void) {
             -ov     - Set override_redirect flag (For seamless desktop background integration in non-fullscreenmode)\n \
             -d      - Daemonize\n \
             -debug  - Enable debug messages\n");
-}
-
-static Window find_subwindow(Window win, int w, int h) {
-  unsigned int i, j;
-  Window troot, parent, *children;
-  unsigned int n;
-
-  /* search subwindows with same size as display or work area */
-
-  for (i = 0; i < 10; i++) {
-    XQueryTree(display, win, &troot, &parent, &children, &n);
-
-    for (j = 0; j < n; j++) {
-      XWindowAttributes attrs;
-
-      if (XGetWindowAttributes(display, children[j], &attrs)) {
-        /* Window must be mapped and same size as display or
-         * work space */
-        if (attrs.map_state != 0 && ((attrs.width == display_width && attrs.height == display_height) || (attrs.width == w && attrs.height == h))) {
-          win = children[j];
-          break;
-        }
-      }
-    }
-
-    XFree(children);
-    if (j == n) {
-      break;
-    }
-  }
-
-  return win;
-}
-
-static Window find_desktop_window(Window *p_root, Window *p_desktop) {
-  Atom type;
-  int format, i;
-  unsigned long nitems, bytes;
-  unsigned int n;
-  Window root = RootWindow(display, screen);
-  Window win = root;
-  Window troot, parent, *children;
-  unsigned char *buf = NULL;
-
-  if (!p_root || !p_desktop) {
-    return 0;
-  }
-
-  /* some window managers set __SWM_VROOT to some child of root window */
-
-  XQueryTree(display, root, &troot, &parent, &children, &n);
-  for (i = 0; i < (int)n; i++) {
-    if (XGetWindowProperty(display, children[i], ATOM(__SWM_VROOT), 0, 1, False, XA_WINDOW, &type, &format, &nitems, &bytes, &buf) == Success && type == XA_WINDOW) {
-      win = *(Window *)buf;
-      XFree(buf);
-      XFree(children);
-      if (debug) {
-        fprintf(stderr, NAME ": desktop window (%lx) found from __SWM_VROOT property\n", win);
-      }
-      fflush(stderr);
-      *p_root = win;
-      *p_desktop = win;
-      return win;
-    }
-
-    if (buf) {
-      XFree(buf);
-      buf = 0;
-    }
-  }
-  XFree(children);
-
-  /* get subwindows from root */
-  win = find_subwindow(root, -1, -1);
-
-  display_width = DisplayWidth(display, screen);
-  display_height = DisplayHeight(display, screen);
-
-  win = find_subwindow(win, display_width, display_height);
-
-  if (buf) {
-    XFree(buf);
-    buf = 0;
-  }
-
-  if (win != root && debug) {
-    fprintf(stderr, NAME ": desktop window (%lx) is subwindow of root window (%lx)\n", win, root);
-  } else if (debug) {
-    fprintf(stderr, NAME ": desktop window (%lx) is root window\n", win);
-  }
-
-  fflush(stderr);
-
-  *p_root = root;
-  *p_desktop = win;
-
-  return win;
 }
 
 int main(int argc, char **argv) {
@@ -370,6 +273,8 @@ int main(int argc, char **argv) {
   if (!display)
     return 1;
 
+  window.root = RootWindow(display, screen);
+
   if (fullscreen) {
     window.x = 0;
     window.y = 0;
@@ -378,11 +283,6 @@ int main(int argc, char **argv) {
   }
   int depth = 0, flags = CWOverrideRedirect | CWBackingStore;
   Visual *visual = NULL;
-
-  if (!find_desktop_window(&window.root, &window.desktop)) {
-    fprintf(stderr, NAME ": Error: couldn't find desktop window\n");
-    return 1;
-  }
 
   if (argb && get_argb_visual(&visual, &depth)) {
     have_argb_visual = true;
@@ -423,7 +323,7 @@ int main(int argc, char **argv) {
       flags |= CWBackPixel;
     }
 
-    window.window = XCreateWindow(display, window.desktop, window.x, window.y, window.width, window.height, 0, depth, InputOutput, visual, flags, &attrs);
+    window.window = XCreateWindow(display, window.root, window.x, window.y, window.width, window.height, 0, depth, InputOutput, visual, flags, &attrs);
     XLowerWindow(display, window.window);
 
     fprintf(stderr, NAME ": window type - override\n");
