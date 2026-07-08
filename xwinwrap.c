@@ -146,6 +146,58 @@ static void usage(void) {
             -debug  - Enable debug messages\n");
 }
 
+static void update_root_for_vroot() {
+  Atom type;
+  int format;
+  unsigned long nitems, bytes;
+  unsigned int n;
+  Window root = RootWindow(display, screen);
+  Window troot, parent, *children;
+  unsigned char *buf = NULL;
+
+  XQueryTree(display, root, &troot, &parent, &children, &n);
+  for (unsigned int i = 0; i < n; i++) {
+    if (XGetWindowProperty(display, children[i], ATOM(__SWM_VROOT),
+                           0, 1, False, XA_WINDOW,
+                           &type, &format, &nitems, &bytes, &buf) == Success
+        && type == XA_WINDOW) {
+      window.root = *(Window *)buf;
+      XFree(buf);
+      XFree(children);
+      return;
+    }
+    if (buf) { XFree(buf); buf = NULL; }
+  }
+  XFree(children);
+}
+
+static Window find_desktop_layer(Window root) {
+  Window troot, parent, *children;
+  unsigned int n;
+  Atom type;
+  int format;
+  unsigned long nitems, bytes;
+  unsigned char *buf = NULL;
+
+  XQueryTree(display, root, &troot, &parent, &children, &n);
+  for (unsigned int i = 0; i < n; i++) {
+    if (XGetWindowProperty(display, children[i], ATOM(_NET_WM_WINDOW_TYPE),
+                           0, 1, False, XA_ATOM,
+                           &type, &format, &nitems, &bytes, &buf) == Success
+        && type == XA_ATOM && nitems > 0) {
+      if (*(Atom *)buf == ATOM(_NET_WM_WINDOW_TYPE_DESKTOP)) {
+        XFree(buf);
+        Window desktop = children[i];
+        XFree(children);
+        return desktop;
+      }
+    }
+    if (buf) { XFree(buf); buf = NULL; }
+  }
+  XFree(children);
+  return 0;
+}
+
 int main(int argc, char **argv) {
   char widArg[256];
   char *widArgv[] = {widArg};
@@ -274,6 +326,7 @@ int main(int argc, char **argv) {
     return 1;
 
   window.root = RootWindow(display, screen);
+  update_root_for_vroot();
 
   if (fullscreen) {
     window.x = 0;
@@ -323,7 +376,8 @@ int main(int argc, char **argv) {
       flags |= CWBackPixel;
     }
 
-    window.window = XCreateWindow(display, window.root, window.x, window.y, window.width, window.height, 0, depth, InputOutput, visual, flags, &attrs);
+    Window parent = find_desktop_layer(window.root);
+    window.window = XCreateWindow(display, parent ? parent : window.root, window.x, window.y, window.width, window.height, 0, depth, InputOutput, visual, flags, &attrs);
     XLowerWindow(display, window.window);
 
     fprintf(stderr, NAME ": window type - override\n");
