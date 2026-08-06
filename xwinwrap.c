@@ -1,3 +1,4 @@
+#include <X11/X.h>
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <X11/Xproto.h>
@@ -562,7 +563,7 @@ int main(int argc, char **argv) {
     XShapeCombineMask(display, window.window, ShapeBounding, 0, 0, mask, ShapeSet);
   }
 
-  XSelectInput(display, window.window, SubstructureNotifyMask | EnterWindowMask | LeaveWindowMask);
+  XSelectInput(display, window.window, SubstructureNotifyMask | EnterWindowMask | LeaveWindowMask | PointerMotionMask);
   XMapWindow(display, window.window);
 
   XSync(display, window.window);
@@ -609,6 +610,9 @@ int main(int argc, char **argv) {
           XLowerWindow(display, window.window);
           XFlush(display);
         }
+        if (map->window != window.window) {
+          XSelectInput(display, map->window, PointerMotionMask);
+        }
       } else if (ev.type == EnterNotify || ev.type == LeaveNotify) {
         XCrossingEvent *cross = &ev.xcrossing;
         XEvent fake = {
@@ -621,6 +625,23 @@ int main(int argc, char **argv) {
             .x_root = cross->x_root,
             .y_root = cross->y_root,
             .state = cross->state,
+            .is_hint = NotifyNormal,
+            .same_screen = True,
+          }
+        };
+        XSendEvent(display, window.root, True, PointerMotionMask, &fake);
+      } else if (ev.type == MotionNotify) {
+        XMotionEvent *motion = &ev.xmotion;
+        XEvent fake = {
+          .xmotion = {
+            .type = MotionNotify,
+            .window = window.root,
+            .root = window.root,
+            .subwindow = None,
+            .time = motion->time,
+            .x_root = motion->x_root,
+            .y_root = motion->y_root,
+            .state = motion->state,
             .is_hint = NotifyNormal,
             .same_screen = True,
           }
