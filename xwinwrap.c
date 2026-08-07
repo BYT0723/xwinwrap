@@ -7,6 +7,7 @@
 #include <X11/extensions/Xrender.h>
 #include <X11/extensions/shape.h>
 
+#include <errno.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -27,8 +28,6 @@
 #define ATOM(a) XInternAtom(display, #a, False)
 
 Display *display = NULL;
-int display_width;
-int display_height;
 int screen;
 
 typedef enum {
@@ -88,8 +87,6 @@ static void init_x11() {
     return;
   }
   screen = DefaultScreen(display);
-  display_width = DisplayWidth(display, screen);
-  display_height = DisplayHeight(display, screen);
 }
 
 static int get_argb_visual(Visual **visual, int *depth) {
@@ -199,6 +196,24 @@ static Window find_desktop_layer(Window root) {
   return 0;
 }
 
+static void forward_motion(int x_root, int y_root, unsigned int state, Time time) {
+  XEvent fake = {
+    .xmotion = {
+      .type = MotionNotify,
+      .window = window.root,
+      .root = window.root,
+      .subwindow = None,
+      .time = time,
+      .x_root = x_root,
+      .y_root = y_root,
+      .state = state,
+      .is_hint = NotifyNormal,
+      .same_screen = True,
+    }
+  };
+  XSendEvent(display, window.root, True, PointerMotionMask, &fake);
+}
+
 int main(int argc, char **argv) {
   char widArg[256];
   char *widArgv[] = {widArg};
@@ -223,9 +238,6 @@ int main(int argc, char **argv) {
   bool daemonize = false;
 
   win_shape shape = SHAPE_RECT;
-  Pixmap mask;
-  GC mask_gc;
-  XGCValues xgcv;
 
   window.width = WIDTH;
   window.height = HEIGHT;
@@ -415,7 +427,6 @@ int main(int argc, char **argv) {
     window.window = XCreateWindow(display, window.root, window.x, window.y, window.width, window.height, 0, depth,InputOutput, visual, flags, &attrs);
 
     wmHint.flags = InputHint | StateHint;
-    // wmHint.input = undecorated ? False : True;
     wmHint.input = !noFocus;
     wmHint.initial_state = NormalState;
 
@@ -526,8 +537,8 @@ int main(int argc, char **argv) {
   }
 
   if (shape) {
-    mask = XCreatePixmap(display, window.window, window.width, window.height, 1);
-    mask_gc = XCreateGC(display, mask, 0, &xgcv);
+    Pixmap mask = XCreatePixmap(display, window.window, window.width, window.height, 1);
+    GC mask_gc = XCreateGC(display, mask, 0, NULL);
 
     switch (shape) {
     // Nothing special to be done if it's a rectangle
@@ -566,7 +577,7 @@ int main(int argc, char **argv) {
   XSelectInput(display, window.window, SubstructureNotifyMask | EnterWindowMask | LeaveWindowMask | PointerMotionMask);
   XMapWindow(display, window.window);
 
-  XSync(display, window.window);
+  XFlush(display);
 
   sprintf(widArg, "0x%x", (int)window.window);
 
@@ -590,58 +601,36 @@ int main(int argc, char **argv) {
 
 
   int fd = ConnectionNumber(display);
-  struct timeval tv = {0, 50000}; // 50m
 
   for (;;) {
     fd_set fds;
     FD_ZERO(&fds);
     FD_SET(fd, &fds);
     XEvent ev;
+    struct timeval tv = {0, 200000}; // 200ms
 
-    select(fd + 1, &fds, NULL, NULL, &tv);
+    if (select(fd + 1, &fds, NULL, NULL, &tv) < 0) {
+      if (errno == EINTR)
+        continue;
+      break;
+    }
 
-    while (XPending(display)) {
-      XNextEvent(display, &ev);
-      if (ev.type == MapNotify) {
-        XMapEvent *map = &ev.xmap;
-        if (map->window != window.window) {
-          XSelectInput(display, map->window, PointerMotionMask);
+    if (FD_ISSET(fd, &fds)) {
+      do {
+        XNextEvent(display, &ev);
+        if (ev.type == MapNotify) {
+          XMapEvent *map = &ev.xmap;
+          if (map->window != window.window) {
+            XSelectInput(display, map->window, PointerMotionMask);
+          }
+        } else if (ev.type == EnterNotify || ev.type == LeaveNotify) {
+          XCrossingEvent *cross = &ev.xcrossing;
+          forward_motion(cross->x_root, cross->y_root, cross->state, cross->time);
+        } else if (ev.type == MotionNotify) {
+          XMotionEvent *motion = &ev.xmotion;
+          forward_motion(motion->x_root, motion->y_root, motion->state, motion->time);
         }
-      } else if (ev.type == EnterNotify || ev.type == LeaveNotify) {
-        XCrossingEvent *cross = &ev.xcrossing;
-        XEvent fake = {
-          .xmotion = {
-            .type = MotionNotify,
-            .window = window.root,
-            .root = window.root,
-            .subwindow = None,
-            .time = cross->time,
-            .x_root = cross->x_root,
-            .y_root = cross->y_root,
-            .state = cross->state,
-            .is_hint = NotifyNormal,
-            .same_screen = True,
-          }
-        };
-        XSendEvent(display, window.root, True, PointerMotionMask, &fake);
-      } else if (ev.type == MotionNotify) {
-        XMotionEvent *motion = &ev.xmotion;
-        XEvent fake = {
-          .xmotion = {
-            .type = MotionNotify,
-            .window = window.root,
-            .root = window.root,
-            .subwindow = None,
-            .time = motion->time,
-            .x_root = motion->x_root,
-            .y_root = motion->y_root,
-            .state = motion->state,
-            .is_hint = NotifyNormal,
-            .same_screen = True,
-          }
-        };
-        XSendEvent(display, window.root, True, PointerMotionMask, &fake);
-      }
+      } while (QLength(display));
     }
 
     if (waitpid(pid, &status, WNOHANG) > 0) {
