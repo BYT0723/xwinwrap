@@ -604,12 +604,6 @@ int main(int argc, char **argv) {
       XNextEvent(display, &ev);
       if (ev.type == MapNotify) {
         XMapEvent *map = &ev.xmap;
-        // NOTE: 避免获取map->window的attr或class
-        // 如果抓取到popup窗口，会引发Xerror错误，导致xwinwrap直接退出
-        if (map->window != window.window && map->override_redirect) {
-          XLowerWindow(display, window.window);
-          XFlush(display);
-        }
         if (map->window != window.window) {
           XSelectInput(display, map->window, PointerMotionMask);
         }
